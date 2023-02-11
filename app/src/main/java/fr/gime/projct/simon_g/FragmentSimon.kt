@@ -1,25 +1,37 @@
 package fr.gime.projct.simon_g
 
-import android.annotation.SuppressLint
+import android.app.Activity
+import android.bluetooth.*
+import android.bluetooth.BluetoothDevice.EXTRA_DEVICE
+import android.content.BroadcastReceiver
+import android.content.ContentValues.TAG
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.media.MediaPlayer
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.View.INVISIBLE
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.viewModelScope
-import fr.gime.projct.simonV5.simon_g.SimonResults
 import fr.gime.projct.simon_g.databinding.SimonFragmentBinding
+import fr.gime.projct.simon_g.viewModel.SimonResults
+import fr.gime.projct.simon_g.viewModel.ViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import fr.gime.projct.simonV5.simon_g.ViewModel
+import java.util.*
+
+private const val TARGET_DEVICE = "Arduino Simon"
 
 class FragmentSimon : Fragment() {
 
@@ -35,8 +47,13 @@ class FragmentSimon : Fragment() {
     var nextRound = true // indicate if going to next round is possible or not
     var score = 1 // store the score
     val simonViewModel: ViewModel by viewModels() // the viewModel
-    private lateinit var AccelerometerListener: SensorEventListener // Accelerometer object
+    private lateinit var accelerometerListener: SensorEventListener // Accelerometer object
     private var mediaPlayer: MediaPlayer? = null // sound controller
+    private var bluetoothAdapter: BluetoothAdapter? = null
+    private var bluetoothGatt: BluetoothGatt? = null
+    private var SERVICE_UUID: UUID = UUID.randomUUID()
+    private var CHARACTERISTIC_UUID: UUID = UUID.randomUUID()
+    private var device: BluetoothDevice? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -47,6 +64,36 @@ class FragmentSimon : Fragment() {
         return _binding.root
     }
 
+    private val gattCallback = object : BluetoothGattCallback() {
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            super.onConnectionStateChange(gatt, status, newState)
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                gatt.discoverServices()
+            }
+        }
+
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            super.onServicesDiscovered(gatt, status)
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                val service = gatt.getService(SERVICE_UUID)
+                val characteristic = service.getCharacteristic(CHARACTERISTIC_UUID)
+                gatt.readCharacteristic(characteristic)
+            } else {
+                Log.d(TAG, "onServicesDiscovered received: $status")
+            }
+        }
+
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            status: Int
+        ) {
+            super.onCharacteristicRead(gatt, characteristic, status)
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+            }
+        }
+    }
+
     override fun onStop() {
         super.onStop()
         if (mediaPlayer != null) {
@@ -54,24 +101,80 @@ class FragmentSimon : Fragment() {
             mediaPlayer = null
         }
         super.onStop()
-        sensorManager!!.unregisterListener(AccelerometerListener)
+        sensorManager!!.unregisterListener(accelerometerListener)
     }
 
     override fun onResume() {
         super.onResume()
         sensorManager!!.registerListener(
-            AccelerometerListener,
+            accelerometerListener,
             sensor,
             SensorManager.SENSOR_STATUS_ACCURACY_HIGH
         )
     }
 
+    private fun startScan() {
+        val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+        activity?.registerReceiver(receiver, filter)
+        bluetoothAdapter.startDiscovery()
+    }
+
+    private val receiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val action = intent.action
+            if (BluetoothDevice.ACTION_FOUND == action) {
+                val device = if (Build.VERSION.SDK_INT >= 33) {
+                    device = intent.getParcelableExtra<BluetoothDevice>("TARGET_DEVICE", EXTRA_DEVICE)
+
+                }else{
+                    device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+
+                }
+                if (device.name == TARGET_DEVICE) {
+                    this.device = device
+                    bluetoothGatt = device.connectGatt(activity, false, gattCallback)
+                    context.unregisterReceiver(this)
+                }
+            }
+        }
+
+         fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+            super.onActivityResult(requestCode, resultCode, data)
+            if (requestCode == REQUEST_ENABLE_BT) {
+                if (resultCode == Activity.RESULT_OK) {
+                    startScan()
+                } else {
+                    Toast.makeText(activity, "Bluetooth not enabled", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        fun onDestroy() {
+            activity?.unregisterReceiver(receiver)
+            bluetoothGatt?.disconnect()
+            bluetoothGatt?.close()
+        }
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         sensorManager = requireActivity().getSystemService(Context.SENSOR_SERVICE) as SensorManager
         sensor = sensorManager!!.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         _binding.checkBtn.visibility = INVISIBLE
+
+        val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+        if (bluetoothAdapter == null) {
+            Toast.makeText(activity, "Bluetooth not supported", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (!bluetoothAdapter.isEnabled) {
+            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT)
+        } else {
+            //startScan()
+        }
 
         simonViewModel.viewModelScope.launch {
             _binding.seq.text = getString(R.string.GameStartIn)
@@ -101,7 +204,7 @@ class FragmentSimon : Fragment() {
             }
         }
 
-        AccelerometerListener = object : SensorEventListener {
+        accelerometerListener = object : SensorEventListener {
 
             override fun onAccuracyChanged(sensor: Sensor, acc: Int) {
             }

@@ -13,12 +13,11 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="20sp"
         android:layout_marginBottom="10dp"
+        android:fontFamily="@font/bebas_neue_bold"
         android:gravity="center"
         android:textColor="#C62828"
-        android:textSize="40sp"
-        android:fontFamily="@font/bebas_neue_bold"
         android:textFontWeight="900"
-     />
+        android:textSize="40sp" />
 
     <TextView
         android:id="@+id/seq"
@@ -26,11 +25,19 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="20sp"
         android:layout_marginBottom="10dp"
+        android:fontFamily="@font/bebas_neue_bold"
         android:gravity="center"
         android:textColor="#EF6C00"
-        android:textSize="52sp"
-        android:fontFamily="@font/bebas_neue_bold"
-        android:textFontWeight="900"/>
+        android:textFontWeight="900"
+        android:textSize="52sp" />
+
+    <ImageView
+        android:id="@+id/movementImg"
+        android:layout_width="411dp"
+        android:layout_height="428dp"
+        android:layout_gravity="center"
+        android:layout_marginBottom="20dp"
+        app:srcCompat="@drawable/simonall" />
 
     <Button
         android:id="@+id/checkBtn"
@@ -38,16 +45,6 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="30dp"
         android:backgroundTint="@color/purple_200"
-        android:text="start game"
+        android:text="Restart"
         app:cornerRadius="20dp" />
-
-    <ImageView
-        android:id="@+id/movementImg"
-        android:layout_width="411dp"
-        android:layout_height="428dp"
-        android:layout_gravity="center"
-        android:layout_marginBottom="50dp"
-        app:srcCompat="@drawable/simonall" />
-
-
 </LinearLayout>

@@ -1,4 +1,5 @@
-package fr.gime.projct.simonV5.simon_g
+package fr.gime.projct.simon_g.viewModel
+
 
 import android.os.Parcelable
 import kotlinx.android.parcel.Parcelize

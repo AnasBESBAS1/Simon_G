@@ -1,4 +1,4 @@
-package fr.gime.projct.simonV5.simon_g
+package fr.gime.projct.simon_g.viewModel
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -13,15 +13,14 @@ private const val STATE_KEY_RESULT = "Simon"
 @HiltViewModel
 class ViewModel @Inject constructor(
     state: SavedStateHandle,
-
 ) : ViewModel() {
     private val simonBackEnd = BackEndImpl()
     private val _simonResult: MutableLiveData<SimonResults> =
         state.getLiveData(STATE_KEY_RESULT, SimonResults.Empty)
-
     val simonResult: LiveData<SimonResults> = _simonResult
 
     fun dataToDirection(x: Float, y: Float, z: Float) {
+        var one : Direction
         when (simonBackEnd.dataToDirection(x, y, z)) {
             1 -> _simonResult.value = SimonResults.RIGHT(simonBackEnd.dataToDirection(x, y, z))
             2 -> _simonResult.value = SimonResults.LEFT(simonBackEnd.dataToDirection(x, y, z))
@@ -30,7 +29,9 @@ class ViewModel @Inject constructor(
             0 ->_simonResult.value =  SimonResults.STABLE(simonBackEnd.dataToDirection(x, y, z))
         }
     }
-
+    internal enum class Direction {
+        NORTH, SOUTH, WEST, EAST
+    }
     fun compare(a: Int, b: Int): Boolean {
         return simonBackEnd.compare(a, b)
     }
